@@ -165,7 +165,7 @@ class LTIAuthenticator(Authenticator):
 
         if canvas_id is not None:
             user_id = canvas_id
-        elif "blackboard" in handler.get_body_argument("tool_consumer_info_product_family_code", default=""):
+        elif "blackboard" in handler.get_body_argument("tool_consumer_info_product_family_code", default="").lower():
             user_id = handler.get_body_argument("lis_person_sourcedid", default=user_id)
 
         return {
