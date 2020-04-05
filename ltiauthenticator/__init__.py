@@ -142,29 +142,36 @@ class LTIAuthenticator(Authenticator):
 
         launch_url = protocol + "://" + handler.request.host + handler.request.uri
 
-        if validator.validate_launch_request(
+        # validate_launch_request will throw an error if launch is not valid
+        validator.validate_launch_request(
                 launch_url,
                 handler.request.headers,
                 args
-        ):
-            # Before we return lti_user_id, check to see if a canvas_custom_user_id was sent. 
-            # If so, this indicates two things:
-            # 1. The request was sent from Canvas, not edX
-            # 2. The request was sent from a Canvas course not running in anonymous mode
-            # If this is the case we want to use the canvas ID to allow grade returns through the Canvas API
-            # If Canvas is running in anonymous mode, we'll still want the 'user_id' (which is the `lti_user_id``)
+        )
+        
+        user_id = handler.get_body_argument('user_id')
+        
+        # Before we return user_id, check to see if a canvas_custom_user_id was sent. 
+        # If so, this indicates two things:
+        # 1. The request was sent from Canvas, not edX
+        # 2. The request was sent from a Canvas course not running in anonymous mode
+        # If this is the case we want to use the canvas ID to allow grade returns through the Canvas API
+        # If Canvas is running in anonymous mode, we'll still want the 'user_id' (which is the `user_id``)
+        # If request was not sent from Canvas, then check for Blackboard
+        #     - Use the tool_consumer_info_product_family_code argument
+        #       which should be something like "BlackboardLearn"
 
-            canvas_id = handler.get_body_argument('custom_canvas_user_id', default=None)
+        canvas_id = handler.get_body_argument('custom_canvas_user_id', default=None)
 
-            if canvas_id is not None:
-                user_id = handler.get_body_argument('custom_canvas_user_id')
-            else:
-                user_id = handler.get_body_argument('user_id')
+        if canvas_id is not None:
+            user_id = canvas_id
+        elif "blackboard" in handler.get_body_argument("tool_consumer_info_product_family_code", default=""):
+            user_id = handler.get_body_argument("lis_person_sourcedid", default=user_id)
 
-            return {
-                'name': user_id,
-                'auth_state': {k: v for k, v in args.items() if not k.startswith('oauth_')}
-            }
+        return {
+            'name': user_id,
+            'auth_state': {k: v for k, v in args.items() if not k.startswith('oauth_')}
+        }
 
 
     def login_url(self, base_url):
